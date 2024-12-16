@@ -1,0 +1,110 @@
+import tkinter as tk
+from tkinter import messagebox
+import kociemba
+
+# Function to handle entry inputs
+def on_entry_input(event, row, col, entries, side):
+    """
+    Handle the user input in an entry field.
+    - Converts lowercase to uppercase.
+    - Moves focus to the next entry automatically.
+    """
+    entry = event.widget
+    value = entry.get().upper()  # Convert to uppercase
+    if len(value) > 1:  # Only one character allowed
+        entry.delete(1, tk.END)
+    else:
+        entry.delete(0, tk.END)
+        entry.insert(0, value)
+        if value.isalpha() and row != 3 and col != 3:  # Only move for valid letters
+            next_col = col + 1 if col < 2 else 0
+            next_row = row + 1 if col == 2 else row
+            if next_row < 3:
+                entries[side][next_row][next_col].focus_set()
+
+# Validate cube state
+def validate_cube_state(cube_state):
+    """
+    Validate the cube state string for correctness.
+    """
+    if len(cube_state) != 54:
+        raise ValueError("Cube state must have exactly 54 characters representing the stickers.")
+    
+    valid_colors = {'W', 'R', 'G', 'Y', 'O', 'B'}
+    if not all(char in valid_colors for char in cube_state):
+        raise ValueError(f"Invalid characters found in cube state. Allowed: {', '.join(valid_colors)}")
+
+    for color in valid_colors:
+        if cube_state.count(color) != 9:
+            raise ValueError(f"Invalid color count for {color}. Each color must appear exactly 9 times.")
+    
+    return True
+
+# Solve cube
+def solve_cube():
+    try:
+        # Construct the cube state string from entries
+        cube_state = (
+            ''.join(entry.get() for row in entries['U'] for entry in row) +
+            ''.join(entry.get() for row in entries['R'] for entry in row) +
+            ''.join(entry.get() for row in entries['F'] for entry in row) +
+            ''.join(entry.get() for row in entries['D'] for entry in row) +
+            ''.join(entry.get() for row in entries['L'] for entry in row) +
+            ''.join(entry.get() for row in entries['B'] for entry in row)
+        )
+        
+        # Validate the cube state
+        validate_cube_state(cube_state)
+        
+        # Solve the cube
+        solution = kociemba.solve(cube_state)
+        
+        # Show the solution
+        messagebox.showinfo("Solution", f"Solution: {solution}")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to solve the cube: {str(e)}")
+
+# Create the GUI
+root = tk.Tk()
+root.title("Rubik's Cube Solver")
+
+entries = {}
+
+# Define the cube sides
+sides = {
+    'W': ('W', 'White'),
+    'R': ('R', 'Red'),
+    'G': ('G', 'Green'),
+    'Y': ('Y', 'Yellow'),
+    'O': ('O', 'Orange'),
+    'B': ('B', 'Blue')
+}
+
+# Build the GUI for each side
+for side, (center, color) in sides.items():
+    frame = tk.Frame(root, padx=10, pady=10, relief=tk.RAISED, borderwidth=2)
+    frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    entries[side] = []
+    tk.Label(frame, text=f"{side} (center: {center})", font=("Arial", 10)).pack()
+
+    # Add the 3x3 grid of entries
+    face_frame = tk.Frame(frame)
+    face_frame.pack()
+    for row in range(3):
+        row_entries = []
+        for col in range(3):
+            if row == 1 and col == 1:  # Center square
+                entry = tk.Label(face_frame, text=center, bg=color.lower(), width=3, height=2)
+                entry.grid(row=row, column=col)
+            else:
+                entry = tk.Entry(face_frame, width=2, justify='center', font=("Arial", 14))
+                entry.grid(row=row, column=col)
+                entry.bind('<KeyRelease>', lambda e, r=row, c=col, s=side: on_entry_input(e, r, c, entries, s))
+                row_entries.append(entry)
+        entries[side].append(row_entries)
+
+
+solve_button = tk.Button(root, text="Solve", command=solve_cube, bg="green", fg="white", font=("Arial", 12, "bold"))
+solve_button.pack(side=tk.BOTTOM, pady=10)
+
+root.mainloop()
